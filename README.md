@@ -33,7 +33,7 @@ The identity gate leaves the qubit unchanged.
 
 **Matrix representation:**
 $$
-I = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}
+\begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}
 $$
 
 #### 2. **Pauli-X Gate (X)**
@@ -41,7 +41,7 @@ The Pauli-X gate is the quantum equivalent of the classical NOT gate. It flips t
 
 **Matrix representation:**
 $$
-X = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}
+\begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}
 $$
 
 **Action:**
@@ -56,7 +56,7 @@ The Pauli-Y gate performs a rotation around the Y-axis of the Bloch sphere.
 
 **Matrix representation:**
 $$
-Y = \begin{pmatrix} 0 & -i \\ i & 0 \end{pmatrix}
+\begin{pmatrix} 0 & -i \\ i & 0 \end{pmatrix}
 $$
 
 **Action:**
@@ -71,7 +71,7 @@ The Pauli-Z gate is a phase-flip gate that leaves $|0\rangle$ unchanged but appl
 
 **Matrix representation:**
 $$
-Z = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}
+ \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}
 $$
 
 **Action:**
@@ -86,7 +86,7 @@ The Hadamard gate creates an equal superposition from basis states.
 
 **Matrix representation:**
 $$
-H = \frac{1}{\sqrt{2}} \begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}
+\frac{1}{\sqrt{2}} \begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}
 $$
 
 **Action:**
@@ -97,14 +97,14 @@ $$
 H|1\rangle = \frac{|0\rangle - |1\rangle}{\sqrt{2}} = |-\rangle
 $$
 
-**Why:** Fundamental for creating superpositions; used in almost every quantum algorithm including quantum Fourier transform and Grover's algorithm.
+**Why:** Fundamental for creating superpositions; us in almost every quantum algorithm including quantum Fourier transform and Grover's algorithm.
 
 #### 6. **S Gate (Phase Gate)**
 The S gate applies a 90° phase rotation.
 
 **Matrix representation:**
 $$
-S = \begin{pmatrix} 1 & 0 \\ 0 & i \end{pmatrix}
+ \begin{pmatrix} 1 & 0 \\ 0 & i \end{pmatrix}
 $$
 
 **Action:**
@@ -124,7 +124,7 @@ The T gate applies a 45° phase rotation.
 
 **Matrix representation:**
 $$
-T = \begin{pmatrix} 1 & 0 \\ 0 & e^{i\pi/4} \end{pmatrix} = \begin{pmatrix} 1 & 0 \\ 0 & \frac{1+i}{\sqrt{2}} \end{pmatrix}
+\begin{pmatrix} 1 & 0 \\ 0 & e^{i\pi/4} \end{pmatrix} = \begin{pmatrix} 1 & 0 \\ 0 & \frac{1+i}{\sqrt{2}} \end{pmatrix}
 $$
 
 **Action:**
@@ -146,7 +146,7 @@ The CNOT gate flips the target qubit if and only if the control qubit is $|1\ran
 
 **Matrix representation:**
 $$
-\text{CNOT} = \begin{pmatrix} 
+\begin{pmatrix} 
 1 & 0 & 0 & 0 \\
 0 & 1 & 0 & 0 \\
 0 & 0 & 0 & 1 \\
@@ -169,7 +169,7 @@ The CZ gate applies a Z gate to the target qubit if the control qubit is $|1\ran
 
 **Matrix representation:**
 $$
-\text{CZ} = \begin{pmatrix} 
+ \begin{pmatrix} 
 1 & 0 & 0 & 0 \\
 0 & 1 & 0 & 0 \\
 0 & 0 & 1 & 0 \\
@@ -189,7 +189,7 @@ The SWAP gate exchanges the states of two qubits.
 
 **Matrix representation:**
 $$
-\text{SWAP} = \begin{pmatrix} 
+\begin{pmatrix} 
 1 & 0 & 0 & 0 \\
 0 & 0 & 1 & 0 \\
 0 & 1 & 0 & 0 \\
@@ -211,7 +211,7 @@ The Toffoli gate is a controlled-controlled-NOT gate. It flips the target qubit 
 
 **Matrix representation:**
 $$
-\text{CCNOT} = \begin{pmatrix} 
+\begin{pmatrix} 
 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
