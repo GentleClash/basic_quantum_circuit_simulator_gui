@@ -523,6 +523,9 @@ class QuantumSimulatorGUI:
     def __init__(self, root) -> None:
         self.root = root
         self.root.title("Quantum Circuit Simulator")
+        self.qubit_selection_mode = False
+        self.selected_qubits = []
+        self.pending_gate = None
         self.dragging_gate = None
         self.drag_offset_x = 0
         self.drag_offset_y = 0
@@ -594,6 +597,11 @@ class QuantumSimulatorGUI:
         # Center panel - Circuit canvas
         center_panel = ttk.Frame(main_frame)
         center_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.status_label = ttk.Label(center_panel, text="", 
+                              font=('Arial', 12, 'bold'),
+                              foreground='#ff6b6b')
+        self.status_label.pack(pady=5)
         
         # Control buttons
         control_frame = ttk.Frame(center_panel)
@@ -786,7 +794,23 @@ class QuantumSimulatorGUI:
             y = tm + q * ws
             self.canvas.create_line(lm, y, lm + 20 * tsw, y, fill='#333', width=2)
             self.canvas.create_text(lm - 30, y, text=f'q{q}', font=('Arial', 12, 'bold'))
-        
+
+        if self.qubit_selection_mode and self.pending_gate:
+            x = lm + self.pending_gate['time'] * tsw
+            for selected_q in self.selected_qubits:
+                y = tm + selected_q * ws
+                # Draw highlight circle on selected qubits
+                self.canvas.create_oval(x - 20, y - 20, x + 20, y + 20,
+                                    outline='#ff6b6b', width=3, dash=(5, 5))
+            
+            # Draw instruction text
+            gate_info = QuantumGates.GATES.get(self.pending_gate['name'])
+            remaining = gate_info['qubits'] - len(self.selected_qubits) #type: ignore
+            instruction = f"Placing {self.pending_gate['name']}: Select {remaining} more qubit(s)"
+            self.canvas.create_text(lm + 10 * tsw, tm - 40,
+                                text=instruction, fill='#ff6b6b',
+                                font=('Arial', int(14 * self.zoom), 'bold'),
+                                anchor='center')
         # Draw gates
         for gate in self.circuit_gates:
             self.draw_gate(gate, lm, tm, ws, gw, gh, tsw)
@@ -848,22 +872,32 @@ class QuantumSimulatorGUI:
                                    fill='#333', width=3)
 
     def draw_ccnot_gate(self, gate, x, y, ws) -> None:
-        control1_y = y
-        control2_y = y + ws
-        target_y = y + 2 * ws
+        # Last qubit in the list is target, first two are controls
+        qubits = gate['qubits']
+        control1_qubit = qubits[0]
+        control2_qubit = qubits[1]
+        target_qubit = qubits[2]
         
-        # Connecting line
-        self.canvas.create_line(x, control1_y, x, target_y, fill='#333', width=2)
+        # Calculate actual y positions relative to the base y (first qubit's position)
+        base_qubit = gate['qubits'][0]
+        control1_y = y + ws * (control1_qubit - base_qubit)
+        control2_y = y + ws * (control2_qubit - base_qubit)
+        target_y = y + ws * (target_qubit - base_qubit)
+        
+        # Connecting line from topmost to bottommost
+        min_y = min(control1_y, control2_y, target_y)
+        max_y = max(control1_y, control2_y, target_y)
+        self.canvas.create_line(x, min_y, x, max_y, fill='#333', width=2)
         
         # Control dots
         for cy in [control1_y, control2_y]:
             self.canvas.create_oval(x - 6, cy - 6, x + 6, cy + 6,
-                                   fill='#333', outline='#333')
+                                fill='#333', outline='#333')
         
         # Target
         r = int(15 * self.zoom)
         self.canvas.create_oval(x - r, target_y - r, x + r, target_y + r,
-                               outline='#333', width=2, tags=f"gate_{gate['id']}")
+                            outline='#333', width=2, tags=f"gate_{gate['id']}")
         self.canvas.create_line(x - 10, target_y, x + 10, target_y, fill='#333', width=2)
         self.canvas.create_line(x, target_y - 10, x, target_y + 10, fill='#333', width=2)
 
@@ -901,7 +935,6 @@ class QuantumSimulatorGUI:
             self.drag_offset_y = y - gate_y
             
         elif self.selected_gate:
-            # Place new gate
             lm = int(self.left_margin * self.zoom)
             tm = int(self.top_margin * self.zoom)
             ws = int(self.wire_spacing * self.zoom)
@@ -911,7 +944,43 @@ class QuantumSimulatorGUI:
             time = round((x - lm) / tsw)
             
             if 0 <= qubit < self.circuit.num_qubits and time >= 0:
-                self.add_gate_to_circuit(self.selected_gate, qubit, time)
+                gate_info = QuantumGates.GATES.get(self.selected_gate)
+                if gate_info is None:
+                    messagebox.showerror("Error", f"Unknown gate: {self.selected_gate}")
+                    return
+                
+                if gate_info['qubits'] == 1: 
+                    # Single qubit gate - place immediately
+                    self.add_gate_to_circuit(self.selected_gate, qubit, time)
+                else:
+                    # Multi-qubit gate - start selection mode
+                    if not self.qubit_selection_mode:
+                        self.qubit_selection_mode = True
+                        self.selected_qubits = [qubit]
+                        self.pending_gate = {'name': self.selected_gate, 'time': time}
+                        remaining = gate_info['qubits'] - 1
+                        self.status_label.config(text=f"Select {remaining} more qubit(s) for {self.selected_gate}")
+                        self.draw_circuit()  # Redraw to show highlight
+                    else:
+                        # Add qubit to selection
+                        if qubit not in self.selected_qubits:
+                            self.selected_qubits.append(qubit)
+                            remaining = gate_info['qubits'] - len(self.selected_qubits)
+                            if remaining > 0:
+                                self.status_label.config(text=f"Select {remaining} more qubit(s) for {self.selected_gate}")
+                            self.draw_circuit()  # Redraw to show new highlight
+                        
+                        # Check if we have enough qubits
+                        if len(self.selected_qubits) == gate_info['qubits']:
+                            self.add_gate_to_circuit(
+                                self.pending_gate['name'], #type: ignore
+                                self.selected_qubits, 
+                                self.pending_gate['time'] #type: ignore
+                            )
+                            self.qubit_selection_mode = False
+                            self.selected_qubits = []
+                            self.pending_gate = None
+                            self.status_label.config(text="")  # Clear status
 
     def on_canvas_right_click(self, event) -> None:
         # Remove gate at click position
@@ -962,44 +1031,42 @@ class QuantumSimulatorGUI:
             ws = int(self.wire_spacing * self.zoom)
             tsw = int(self.time_step_width * self.zoom)
             
-            # Calculate new position 
-            new_qubit = round((y - tm - self.drag_offset_y) / ws)
-            new_time = max(0, round((x - lm - self.drag_offset_x) / tsw))  # Ensure time >= 0
+            # Calculate offset from first qubit
+            first_qubit = self.dragging_gate['qubits'][0]
+            qubit_offsets = [q - first_qubit for q in self.dragging_gate['qubits']]
             
-            gate_info = QuantumGates.GATES.get(self.dragging_gate['gate'])
+            # Calculate new position for first qubit
+            new_first_qubit = round((y - tm - self.drag_offset_y) / ws)
+            new_time = max(0, round((x - lm - self.drag_offset_x) / tsw))
             
-            # Validate new position
-            if gate_info:
-                if gate_info['qubits'] > 1:
-                    # Check multi-qubit gates fit
-                    if 0 <= new_qubit and new_qubit + gate_info['qubits'] <= self.circuit.num_qubits:
-                        self.dragging_gate['qubits'] = list(range(new_qubit, new_qubit + gate_info['qubits']))
-                        self.dragging_gate['time'] = new_time
-                        self.draw_circuit()
-                else:
-                    # Single qubit gate
-                    if 0 <= new_qubit < self.circuit.num_qubits:
-                        self.dragging_gate['qubits'] = [new_qubit]
-                        self.dragging_gate['time'] = new_time
-                        self.draw_circuit()
+            # Apply offsets to get new qubit positions
+            new_qubits = [new_first_qubit + offset for offset in qubit_offsets]
+            
+            # Validate all qubits are within bounds
+            if all(0 <= q < self.circuit.num_qubits for q in new_qubits):
+                self.dragging_gate['qubits'] = new_qubits
+                self.dragging_gate['time'] = new_time
+                self.draw_circuit()
 
     def on_canvas_release(self, event) -> None:
         """Handle mouse button release"""
         self.dragging_gate = None
         self.update_circuit_info()
 
-    def add_gate_to_circuit(self, gate_name, qubit, time) -> None:
+    def add_gate_to_circuit(self, gate_name, qubits, time) -> None:
         gate_info = QuantumGates.GATES.get(gate_name)
         if not gate_info:
             return
         
-        qubits = [qubit]
-        if gate_info['qubits'] > 1:
-            qubits = list(range(qubit, min(qubit + gate_info['qubits'], self.circuit.num_qubits)))
-            if len(qubits) != gate_info['qubits']:
-                messagebox.showwarning("Invalid Placement", 
-                                      f"{gate_name} requires {gate_info['qubits']} consecutive qubits")
-                return
+        # Ensure qubits is a list
+        if isinstance(qubits, int):
+            qubits = [qubits]
+        
+        # Validate qubit count
+        if len(qubits) != gate_info['qubits']:
+            messagebox.showwarning("Invalid Placement", 
+                f"{gate_name} requires {gate_info['qubits']} qubit(s)")
+            return
         
         gate = {
             'id': len(self.circuit_gates) + 1,
