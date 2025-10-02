@@ -71,7 +71,7 @@ The Pauli-Z gate is a phase-flip gate that leaves $|0\rangle$ unchanged but appl
 
 **Matrix representation:**
 $$
- \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}
+\begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}
 $$
 
 **Action:**
@@ -104,7 +104,7 @@ The S gate applies a 90° phase rotation.
 
 **Matrix representation:**
 $$
- \begin{pmatrix} 1 & 0 \\ 0 & i \end{pmatrix}
+\begin{pmatrix} 1 & 0 \\ 0 & i \end{pmatrix}
 $$
 
 **Action:**
@@ -169,7 +169,7 @@ The CZ gate applies a Z gate to the target qubit if the control qubit is $|1\ran
 
 **Matrix representation:**
 $$
- \begin{pmatrix} 
+\begin{pmatrix} 
 1 & 0 & 0 & 0 \\
 0 & 1 & 0 & 0 \\
 0 & 0 & 1 & 0 \\
