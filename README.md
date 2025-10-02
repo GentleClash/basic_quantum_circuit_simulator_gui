@@ -356,7 +356,7 @@ $$
 
 ## Known Limitations
 
-- Limited to ~15-20 qubits due to memory constraints
+- Limited to 8 qubits due to memory constraints
 - No noise modeling (ideal quantum computer simulation)
 - No visualization 
 - No optimization for sparse circuits

@@ -153,7 +153,27 @@ class QuantumCircuit:
         
         for i in range(size):
             # Check if this basis state has qubit_index in |0⟩ state
+            # For n qubits, each basis state i represents a binary string of length n
+            # where bit positions are numbered from 0 (rightmost/LSB) to n-1 (leftmost/MSB)
+            # 
+            # To check if qubit_index is in |0⟩ state in basis state i:
+            # 1. Create a bitmask: 1 << (num_qubits - 1 - qubit_index)
+            #    This shifts 1 to the bit position corresponding to qubit_index
+            #    Example: for 3 qubits, qubit 1 -> mask = 1 << (3-1-1) = 1 << 1 = 2 (binary: 010)
+            # 
+            # 2. Apply bitwise AND: i & mask
+            #    If the result is 0, then qubit_index is in |0⟩ state
+            #    If the result is non-zero, then qubit_index is in |1⟩ state
+            #    Example: i=5 (binary 101), mask=2 (binary 010) -> 101 & 010 = 000 = 0
+            #    So qubit 1 is in |0⟩ state in basis state |101⟩
+            #
+            # 3. The 'not' operator inverts the boolean result:
+            #    - If qubit is in |0⟩: (i & mask) = 0 -> not 0 = True
+            #    - If qubit is in |1⟩: (i & mask) ≠ 0 -> not (non-zero) = False
             if not (i & (1 << (self.num_qubits - 1 - qubit_index))):
+                
+            # Add the probability amplitude squared (Born rule) to total |0⟩ probability
+            # |amplitude|² gives the probability of measuring this basis state
                 prob_0 += self.state_vector[i].magnitude() ** 2
         
         # Randomly collapse based on probability
@@ -164,6 +184,14 @@ class QuantumCircuit:
         norm = 0
         
         for i in range(size):
+            # Extract the bit value for the specified qubit from state index i
+            # For n qubits, bit positions are numbered from 0 (rightmost) to n-1 (leftmost)
+            # We shift i right by (num_qubits - 1 - qubit_index) positions to move
+            # the target qubit's bit to the least significant position, then mask with 1
+            # Example: for 3 qubits, qubit 0 is at position 2, qubit 1 at position 1, qubit 2 at position 0
+            # If i = 5 (binary 101) and qubit_index = 1:
+            #   - Shift right by (3-1-1) = 1 position: 101 >> 1 = 10 (binary)
+            #   - Mask with 1: 10 & 1 = 0, so qubit 1 is in state |0⟩
             qubit_bit = (i >> (self.num_qubits - 1 - qubit_index)) & 1
             
             if qubit_bit == measurement_result:
@@ -226,13 +254,21 @@ class QuantumCircuit:
         non_gate_bits_match = True
         
         for i in range(self.num_qubits):
+            # Extract the i-th qubit state from the row and column indices
+            # For n qubits, bit position is counted from right (LSB) to left (MSB)
             row_bit = (row >> (self.num_qubits - 1 - i)) & 1
             col_bit = (col >> (self.num_qubits - 1 - i)) & 1
             
+            # Construct the row/column indices for the gate matrix
+            # by placing this qubit's bit at the correct position
+            # in the smaller gate matrix coordinate system
             if i in qubits:
                 gate_qubit_index = qubits.index(i)
                 gate_row |= (row_bit << (gate_bits - 1 - gate_qubit_index))
                 gate_col |= (col_bit << (gate_bits - 1 - gate_qubit_index))
+
+            # This qubit is affected by the gate operation
+            # Map this qubit's position to its position in the gate matrix
             else:
                 if row_bit != col_bit:
                     non_gate_bits_match = False
