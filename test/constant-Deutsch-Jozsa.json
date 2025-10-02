@@ -1,0 +1,77 @@
+{
+  "num_qubits": 2,
+  "gates": [
+    {
+      "id": 1,
+      "gate": "H",
+      "qubits": [
+        1
+      ],
+      "time": 1,
+      "selected": false
+    },
+    {
+      "id": 2,
+      "gate": "H",
+      "qubits": [
+        0
+      ],
+      "time": 2,
+      "selected": false
+    },
+    {
+      "id": 4,
+      "gate": "H",
+      "qubits": [
+        0
+      ],
+      "time": 4,
+      "selected": false
+    },
+    {
+      "id": 5,
+      "gate": "M",
+      "qubits": [
+        0
+      ],
+      "time": 5,
+      "selected": false
+    },
+    {
+      "id": 5,
+      "gate": "I",
+      "qubits": [
+        0
+      ],
+      "time": 3,
+      "selected": false
+    },
+    {
+      "id": 6,
+      "gate": "I",
+      "qubits": [
+        1
+      ],
+      "time": 3,
+      "selected": false
+    }
+  ],
+  "initial_state": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ]
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "num_qubits": 3,
+  "gates": [
+    {
+      "id": 1,
+      "gate": "H",
+      "qubits": [
+        0
+      ],
+      "time": 0,
+      "selected": false
+    },
+    {
+      "id": 2,
+      "gate": "H",
+      "qubits": [
+        1
+      ],
+      "time": 0,
+      "selected": false
+    },
+    {
+      "id": 3,
+      "gate": "H",
+      "qubits": [
+        2
+      ],
+      "time": 0,
+      "selected": false
+    },
+    {
+      "id": 4,
+      "gate": "X",
+      "qubits": [
+        1
+      ],
+      "time": 1,
+      "selected": false
+    },
+    {
+      "id": 5,
+      "gate": "H",
+      "qubits": [
+        2
+      ],
+      "time": 2,
+      "selected": false
+    },
+    {
+      "id": 6,
+      "gate": "CCNOT",
+      "qubits": [
+        0,
+        1,
+        2
+      ],
+      "time": 3,
+      "selected": false
+    },
+    {
+      "id": 7,
+      "gate": "H",
+      "qubits": [
+        2
+      ],
+      "time": 4,
+      "selected": false
+    },
+    {
+      "id": 8,
+      "gate": "X",
+      "qubits": [
+        1
+      ],
+      "time": 5,
+      "selected": false
+    },
+    {
+      "id": 9,
+      "gate": "H",
+      "qubits": [
+        0
+      ],
+      "time": 6,
+      "selected": false
+    },
+    {
+      "id": 10,
+      "gate": "H",
+      "qubits": [
+        1
+      ],
+      "time": 6,
+      "selected": false
+    },
+    {
+      "id": 11,
+      "gate": "H",
+      "qubits": [
+        2
+      ],
+      "time": 6,
+      "selected": false
+    },
+    {
+      "id": 12,
+      "gate": "X",
+      "qubits": [
+        0
+      ],
+      "time": 7,
+      "selected": false
+    },
+    {
+      "id": 13,
+      "gate": "X",
+      "qubits": [
+        1
+      ],
+      "time": 7,
+      "selected": false
+    },
+    {
+      "id": 14,
+      "gate": "X",
+      "qubits": [
+        2
+      ],
+      "time": 7,
+      "selected": false
+    },
+    {
+      "id": 15,
+      "gate": "H",
+      "qubits": [
+        2
+      ],
+      "time": 8,
+      "selected": false
+    },
+    {
+      "id": 16,
+      "gate": "CCNOT",
+      "qubits": [
+        0,
+        1,
+        2
+      ],
+      "time": 9,
+      "selected": false
+    },
+    {
+      "id": 17,
+      "gate": "H",
+      "qubits": [
+        2
+      ],
+      "time": 10,
+      "selected": false
+    },
+    {
+      "id": 18,
+      "gate": "X",
+      "qubits": [
+        0
+      ],
+      "time": 11,
+      "selected": false
+    },
+    {
+      "id": 19,
+      "gate": "X",
+      "qubits": [
+        1
+      ],
+      "time": 11,
+      "selected": false
+    },
+    {
+      "id": 20,
+      "gate": "X",
+      "qubits": [
+        2
+      ],
+      "time": 11,
+      "selected": false
+    },
+    {
+      "id": 21,
+      "gate": "H",
+      "qubits": [
+        0
+      ],
+      "time": 12,
+      "selected": false
+    },
+    {
+      "id": 22,
+      "gate": "H",
+      "qubits": [
+        1
+      ],
+      "time": 12,
+      "selected": false
+    },
+    {
+      "id": 23,
+      "gate": "H",
+      "qubits": [
+        2
+      ],
+      "time": 12,
+      "selected": false
+    },
+    {
+      "id": 24,
+      "gate": "M",
+      "qubits": [
+        0
+      ],
+      "time": 13,
+      "selected": false
+    },
+    {
+      "id": 25,
+      "gate": "M",
+      "qubits": [
+        1
+      ],
+      "time": 13,
+      "selected": false
+    },
+    {
+      "id": 26,
+      "gate": "M",
+      "qubits": [
+        2
+      ],
+      "time": 13,
+      "selected": false
+    }
+  ],
+  "initial_state": [
+    [
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0
+    ]
+  ]
+}
