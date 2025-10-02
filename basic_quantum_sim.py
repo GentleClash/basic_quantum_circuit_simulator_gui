@@ -815,18 +815,40 @@ class QuantumSimulatorGUI:
         for gate in self.circuit_gates:
             self.draw_gate(gate, lm, tm, ws, gw, gh, tsw)
 
+    def get_gate_horizontal_offset(self, gate) -> float:
+        """Calculate horizontal offset for gates at same time to prevent overlap"""
+        same_time_gates = [g for g in self.circuit_gates if g['time'] == gate['time']]
+        if len(same_time_gates) <= 1:
+            return 0
+        
+        # Sort by first qubit to determine order
+        same_time_gates.sort(key=lambda g: min(g['qubits']))
+        
+        try:
+            index = same_time_gates.index(gate)
+            num_gates = len(same_time_gates)
+            offset = (index - (num_gates - 1) / 2) * 0.15
+            return offset
+        except ValueError:
+            return 0
+
     def draw_gate(self, gate, lm, tm, ws, gw, gh, tsw) -> None:
-        gate_info = QuantumGates.GATES.get(gate['gate'])
-        x = lm + gate['time'] * tsw
+        x = lm + (gate['time'])* tsw 
         y = tm + gate['qubits'][0] * ws
         
         color = '#ff6b6b' if gate.get('selected', False) else '#667eea'
         
         if gate['gate'] in ['CNOT', 'CZ']:
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
             self.draw_cnot_gate(gate, x, y, ws, color)
         elif gate['gate'] == 'SWAP':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
             self.draw_swap_gate(gate, x, y, ws)
         elif gate['gate'] == 'CCNOT':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
             self.draw_ccnot_gate(gate, x, y, ws)
         elif gate['gate'] == 'M':
             self.draw_measurement_gate(gate, x, y, gw, gh)
@@ -836,7 +858,7 @@ class QuantumSimulatorGUI:
                                         fill=color, outline='#333', width=2,
                                         tags=f"gate_{gate['id']}")
             self.canvas.create_text(x, y, text=gate['gate'], fill='white',
-                                  font=('Arial', int(12 * self.zoom), 'bold'))
+                                font=('Arial', int(12 * self.zoom), 'bold'))
 
     def draw_cnot_gate(self, gate, x, y, ws, color) -> None:
         control_y = y
@@ -1042,16 +1064,28 @@ class QuantumSimulatorGUI:
             # Apply offsets to get new qubit positions
             new_qubits = [new_first_qubit + offset for offset in qubit_offsets]
             
-            # Validate all qubits are within bounds
+            # Validate all qubits are within bounds and no collision
             if all(0 <= q < self.circuit.num_qubits for q in new_qubits):
-                self.dragging_gate['qubits'] = new_qubits
-                self.dragging_gate['time'] = new_time
-                self.draw_circuit()
+                if not self.check_gate_collision(new_qubits, new_time, self.dragging_gate['id']):
+                    self.dragging_gate['qubits'] = new_qubits
+                    self.dragging_gate['time'] = new_time
+                    self.draw_circuit()
 
     def on_canvas_release(self, event) -> None:
         """Handle mouse button release"""
         self.dragging_gate = None
         self.update_circuit_info()
+    
+    def check_gate_collision(self, qubits, time, exclude_gate_id=None) -> bool:
+        """Check if placing a gate would collide with existing gates"""
+        for gate in self.circuit_gates:
+            if exclude_gate_id and gate['id'] == exclude_gate_id:
+                continue
+            if gate['time'] == time:
+                # Check if any qubits overlap
+                if set(qubits) & set(gate['qubits']):
+                    return True
+        return False
 
     def add_gate_to_circuit(self, gate_name, qubits, time) -> None:
         gate_info = QuantumGates.GATES.get(gate_name)
@@ -1066,6 +1100,12 @@ class QuantumSimulatorGUI:
         if len(qubits) != gate_info['qubits']:
             messagebox.showwarning("Invalid Placement", 
                 f"{gate_name} requires {gate_info['qubits']} qubit(s)")
+            return
+        
+        # Check for collision
+        if self.check_gate_collision(qubits, time):
+            messagebox.showwarning("Invalid Placement", 
+                "A gate already exists at this position")
             return
         
         gate = {
