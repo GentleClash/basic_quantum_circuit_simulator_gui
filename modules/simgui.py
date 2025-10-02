@@ -228,7 +228,7 @@ class QubitStateDialog(tk.Toplevel):
 
 class QuantumSimulatorGUI:
     """Main GUI application"""
-    def __init__(self, root) -> None:
+    def __init__(self, root, time_steps=30) -> None:
         self.root = root
         self.root.title("Quantum Circuit Simulator")
         self.qubit_selection_mode = False
@@ -237,6 +237,9 @@ class QuantumSimulatorGUI:
         self.dragging_gate = None
         self.drag_offset_x = 0
         self.drag_offset_y = 0
+        self.prob_maximized = False
+        self.maximize_window = None
+        self.time_steps = time_steps
         self.root.geometry("1400x800")
         
         # Circuit parameters
@@ -372,8 +375,13 @@ class QuantumSimulatorGUI:
         self.state_text.pack(pady=5)
         
         # Probabilities
-        ttk.Label(right_panel, text="Measurement Probabilities:", font=('Arial', 10, 'bold')).pack(pady=5)
-        
+        prob_header_frame = ttk.Frame(right_panel)
+        prob_header_frame.pack(pady=5, fill=tk.X)
+        ttk.Label(prob_header_frame, text="Measurement Probabilities:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT)
+        maximize_btn = ttk.Button(prob_header_frame, text="⤢", width=3, command=self.toggle_maximize_probabilities)
+        maximize_btn.pack(side=tk.RIGHT)
+        ToolTip(maximize_btn, "Maximize probability view")
+
         # Create canvas for probabilities with scrollbar
         prob_canvas = tk.Canvas(right_panel, height=150)
         prob_scrollbar = ttk.Scrollbar(right_panel, orient="vertical", command=prob_canvas.yview)
@@ -397,6 +405,256 @@ class QuantumSimulatorGUI:
         ttk.Label(info_frame, text="Circuit Info:", font=('Arial', 10, 'bold')).pack()
         self.info_text = tk.Text(info_frame, height=4, width=35)
         self.info_text.pack()
+
+    def maximize_zoom_in(self) -> None:
+        if self.maximize_zoom < 2.0:
+            self.maximize_zoom *= 1.2
+            self.draw_circuit_on_maximize_canvas()
+
+    def maximize_zoom_out(self) -> None:
+        if self.maximize_zoom > 0.3:
+            self.maximize_zoom /= 1.2
+            self.draw_circuit_on_maximize_canvas()
+
+    def maximize_zoom_reset(self) -> None:
+        self.maximize_zoom = 0.7
+        self.draw_circuit_on_maximize_canvas()
+
+    def toggle_maximize_probabilities(self) -> None:
+        """Toggle maximized view of probabilities with circuit canvas"""
+        if self.prob_maximized:
+            # Close maximize window if open
+            if self.maximize_window:
+                self.maximize_window.destroy()
+                self.maximize_window = None
+            self.prob_maximized = False
+        else:
+            # Create maximize window
+            self.maximize_window = tk.Toplevel(self.root)
+            self.maximize_window.title("Probability Distribution")
+            self.maximize_window.geometry("1200x800")
+
+            # Store current zoom for restoration
+            self.saved_zoom = self.zoom
+            self.maximize_zoom = 0.7
+
+            # Circuit canvas at top with scrollbars
+            circuit_frame = ttk.Frame(self.maximize_window)
+            circuit_frame.pack(fill=tk.BOTH, expand=False, pady=(10, 5))
+
+            # Header with zoom controls
+            header_frame = ttk.Frame(circuit_frame)
+            header_frame.pack(fill=tk.X, padx=10, pady=5)
+
+            ttk.Label(header_frame, text="Circuit Diagram",
+                    font=('Arial', 12, 'bold')).pack(side=tk.LEFT)
+
+            ttk.Label(header_frame, text="  Zoom:").pack(side=tk.RIGHT, padx=(20, 5))
+            ttk.Button(header_frame, text="+", command=self.maximize_zoom_in,
+                    width=3).pack(side=tk.RIGHT, padx=2)
+            ttk.Button(header_frame, text="-", command=self.maximize_zoom_out,
+                    width=3).pack(side=tk.RIGHT, padx=2)
+            ttk.Button(header_frame, text="Reset", command=self.maximize_zoom_reset,
+                    width=6).pack(side=tk.RIGHT, padx=2)
+
+            # Create scrollable canvas for circuit
+            circuit_canvas_frame = ttk.Frame(circuit_frame)
+            circuit_canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10)
+
+            h_scroll = ttk.Scrollbar(circuit_canvas_frame, orient=tk.HORIZONTAL)
+            h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+
+            v_scroll = ttk.Scrollbar(circuit_canvas_frame, orient=tk.VERTICAL)
+            v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+            self.maximize_canvas = tk.Canvas(circuit_canvas_frame, bg='white', height=250,
+                                            xscrollcommand=h_scroll.set,
+                                            yscrollcommand=v_scroll.set)
+            self.maximize_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            h_scroll.config(command=self.maximize_canvas.xview)
+            v_scroll.config(command=self.maximize_canvas.yview)
+
+            # Draw circuit
+            self.draw_circuit_on_maximize_canvas()
+
+            # Probabilities section below
+            prob_frame = ttk.Frame(self.maximize_window)
+            prob_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 10))
+
+            ttk.Label(prob_frame, text="Measurement Probabilities",
+                    font=('Arial', 12, 'bold')).pack(pady=5)
+
+            # Scrollable frame for probabilities
+            canvas = tk.Canvas(prob_frame)
+            scrollbar = ttk.Scrollbar(prob_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            # Create grid layout for probabilities
+            results = self.circuit.get_results()
+            if isinstance(results, tuple):
+                results, _ = results
+
+            col_count = 4  # Number of columns
+            row = 0
+            col = 0
+
+            for i, prob in enumerate(results['probabilities']):
+                if prob > 1e-10:
+                    frame = ttk.LabelFrame(scrollable_frame, text=results['state_labels'][i],
+                                        padding=10)
+                    frame.grid(row=row, column=col, padx=10, pady=10, sticky='ew')
+
+                    # Probability bar
+                    bar_canvas = tk.Canvas(frame, height=30, width=200, bg='#e9ecef')
+                    bar_canvas.pack(pady=5)
+
+                    bar_width = int(200 * prob)
+                    bar_canvas.create_rectangle(0, 0, bar_width, 30, fill='#28a745', outline='')
+
+                    # Percentage text
+                    percent_label = ttk.Label(frame, text=f"{prob*100:.2f}%",
+                                            font=('Arial', 11, 'bold'))
+                    percent_label.pack()
+
+                    col += 1
+                    if col >= col_count:
+                        col = 0
+                        row += 1
+
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            # Close button
+            ttk.Button(self.maximize_window, text="Close",
+                    command=self.toggle_maximize_probabilities).pack(pady=10)
+
+            self.prob_maximized = True
+
+            def on_close():
+                self.zoom = self.saved_zoom
+                self.toggle_maximize_probabilities()
+
+            self.maximize_window.protocol("WM_DELETE_WINDOW", on_close)
+
+    def draw_circuit_on_maximize_canvas(self) -> None:
+        """Draw circuit on maximize canvas"""
+        canvas = self.maximize_canvas
+        canvas.delete('all')
+
+        # Apply zoom
+        ws = int(self.wire_spacing * self.maximize_zoom)
+        gw = int(self.gate_width * self.maximize_zoom)
+        gh = int(self.gate_height * self.maximize_zoom)
+        tsw = int(self.time_step_width * self.maximize_zoom)
+        lm = int(self.left_margin * self.maximize_zoom)
+        tm = int(self.top_margin * self.maximize_zoom)
+
+        # Update scroll region
+        width = int((lm + self.time_steps * tsw) * 1.0)
+        height = int((tm + self.circuit.num_qubits * ws + 100) * 1.0)
+        canvas.config(scrollregion=(0, 0, width, height))
+
+        # Draw grid
+        for t in range(self.time_steps + 1):
+            x = lm + t * tsw
+            canvas.create_line(x, tm - 20, x, tm + self.circuit.num_qubits * ws,
+                            fill='#f0f0f0', width=1)
+
+        # Draw wires
+        for q in range(self.circuit.num_qubits):
+            y = tm + q * ws
+            canvas.create_line(lm, y, lm + self.time_steps * tsw, y, fill='#333', width=2)
+            canvas.create_text(lm - 30, y, text=f'q{q}', font=('Arial', 12, 'bold'))
+
+        # Draw gates - reuse existing methods
+        for gate in self.circuit_gates:
+            self.draw_gate_on_maximize_canvas(gate, lm, tm, ws, gw, gh, tsw, canvas)
+
+    def draw_gate_on_maximize_canvas(self, gate, lm, tm, ws, gw, gh, tsw, canvas) -> None:
+        """Draw individual gate on maximize canvas"""
+        x = lm + gate['time'] * tsw
+        y = tm + gate['qubits'][0] * ws
+
+        color = '#667eea'
+
+        if gate['gate'] in ['CNOT', 'CZ']:
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            control_y = y
+            target_y = y + ws * (gate['qubits'][1] - gate['qubits'][0])
+
+            canvas.create_line(x, control_y, x, target_y, fill='#333', width=2)
+            canvas.create_oval(x - 6, control_y - 6, x + 6, control_y + 6,
+                            fill='#333', outline='#333')
+
+            r = int(15 * self.maximize_zoom)
+            canvas.create_oval(x - r, target_y - r, x + r, target_y + r,
+                            outline='#333', width=2)
+            canvas.create_line(x - 10, target_y, x + 10, target_y, fill='#333', width=2)
+            canvas.create_line(x, target_y - 10, x, target_y + 10, fill='#333', width=2)
+
+        elif gate['gate'] == 'SWAP':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            y1 = y
+            y2 = y + ws * (gate['qubits'][1] - gate['qubits'][0])
+
+            canvas.create_line(x, y1, x, y2, fill='#333', width=2)
+
+            size = int(8 * self.maximize_zoom)
+            for yy in [y1, y2]:
+                canvas.create_line(x - size, yy - size, x + size, yy + size,
+                                fill='#333', width=3)
+                canvas.create_line(x + size, yy - size, x - size, yy + size,
+                                fill='#333', width=3)
+
+        elif gate['gate'] == 'CCNOT':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            qubits = gate['qubits']
+            base_qubit = qubits[0]
+            control1_y = y + ws * (qubits[0] - base_qubit)
+            control2_y = y + ws * (qubits[1] - base_qubit)
+            target_y = y + ws * (qubits[2] - base_qubit)
+
+            min_y = min(control1_y, control2_y, target_y)
+            max_y = max(control1_y, control2_y, target_y)
+            canvas.create_line(x, min_y, x, max_y, fill='#333', width=2)
+
+            for cy in [control1_y, control2_y]:
+                canvas.create_oval(x - 6, cy - 6, x + 6, cy + 6,
+                                fill='#333', outline='#333')
+
+            r = int(15 * self.maximize_zoom)
+            canvas.create_oval(x - r, target_y - r, x + r, target_y + r,
+                            outline='#333', width=2)
+            canvas.create_line(x - 10, target_y, x + 10, target_y, fill='#333', width=2)
+            canvas.create_line(x, target_y - 10, x, target_y + 10, fill='#333', width=2)
+
+        elif gate['gate'] == 'M':
+            canvas.create_rectangle(x - gw//2, y - gh//2, x + gw//2, y + gh//2,
+                                fill='#ffd700', outline='#333', width=2)
+
+            r = int(8 * self.maximize_zoom)
+            canvas.create_arc(x - r, y - r//2, x + r, y + r//2,
+                            start=180, extent=180, style=tk.ARC,
+                            outline='#333', width=2)
+            canvas.create_line(x, y, x + r, y - r, fill='#333', width=2)
+        else:
+            # Single qubit gate
+            canvas.create_rectangle(x - gw//2, y - gh//2, x + gw//2, y + gh//2,
+                                fill=color, outline='#333', width=2)
+            canvas.create_text(x, y, text=gate['gate'], fill='white',
+                            font=('Arial', int(12 * self.maximize_zoom), 'bold'))
     
     def create_gate_buttons(self, parent, gates) -> None:
         frame = ttk.Frame(parent)
@@ -459,7 +717,7 @@ class QuantumSimulatorGUI:
         self.initial_state_text.insert('1.0', state_str)
 
     def update_scroll_region(self) -> None:
-        width = int((self.left_margin + 20 * self.time_step_width) * self.zoom)
+        width = int((self.left_margin + self.time_steps * self.time_step_width) * self.zoom)
         height = int((self.top_margin + self.circuit.num_qubits * self.wire_spacing + 100) * self.zoom)
         self.canvas.config(scrollregion=(0, 0, width, height))
 
@@ -492,15 +750,15 @@ class QuantumSimulatorGUI:
         tm = int(self.top_margin * self.zoom)
         
         # Draw grid
-        for t in range(20):
+        for t in range(self.time_steps + 1):
             x = lm + t * tsw
-            self.canvas.create_line(x, tm - 20, x, tm + self.circuit.num_qubits * ws,
+            self.canvas.create_line(x, tm - 30, x, tm + self.circuit.num_qubits * ws,
                                   fill='#f0f0f0', width=1)
         
         # Draw wires
         for q in range(self.circuit.num_qubits):
             y = tm + q * ws
-            self.canvas.create_line(lm, y, lm + 20 * tsw, y, fill='#333', width=2)
+            self.canvas.create_line(lm, y, lm + self.time_steps * tsw, y, fill='#333', width=2)
             self.canvas.create_text(lm - 30, y, text=f'q{q}', font=('Arial', 12, 'bold'))
 
         if self.qubit_selection_mode and self.pending_gate:
