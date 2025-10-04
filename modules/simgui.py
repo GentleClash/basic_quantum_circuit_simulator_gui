@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import json
-import math
+from modules.tooltip_gui import ToolTip, QubitStateDialog
 from modules.complex_ import Complex
 from modules.circuit import QuantumCircuit
 from modules.gates import QuantumGates
@@ -9,222 +9,6 @@ from typing import Any, Dict, List, Optional
 
 type _matrix =  List[List[Complex]]
 type _state_vector = List[Complex]
-
-
-
-class ToolTip:
-    def __init__(self, widget, text) -> None:
-        self.widget = widget
-        self.text = text
-        self.tip_window = None
-        self.schedule_id = None
-        self.widget.bind('<Enter>', self.schedule_tip)
-        self.widget.bind('<Leave>', self.hide_tip)
-    
-    def schedule_tip(self, event=None) -> None:
-        self.hide_tip()
-        self.schedule_id = self.widget.after(500, self.show_tip) 
-
-    def show_tip(self, event=None) -> None:
-        if self.tip_window or not self.text:
-            return
-        
-        x = self.widget.winfo_rootx() + self.widget.winfo_width() + 5
-        y = self.widget.winfo_rooty() + 5
-        
-        self.tip_window = tw = tk.Toplevel(self.widget)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        
-        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
-                        background="#ffffe0", relief=tk.SOLID, borderwidth=1,
-                        font=("Arial", 9), padx=5, pady=3)
-        label.pack()
-
-    def hide_tip(self, event=None) -> None:
-        if self.schedule_id:
-            self.widget.after_cancel(self.schedule_id)
-            self.schedule_id = None
-        if self.tip_window:
-            self.tip_window.destroy()
-            self.tip_window = None
-
-class QubitStateDialog(tk.Toplevel):
-    """Dialog for setting individual qubit states"""
-    def __init__(self, parent, num_qubits) -> None:
-        super().__init__(parent)
-        self.title("Set Qubit States")
-        self.num_qubits = num_qubits
-        self.result = None
-        
-        self.geometry("500x600")
-        self.transient(parent)
-        self.grab_set()
-        
-        # Instructions
-        ttk.Label(self, text="Set Individual Qubit States", 
-                 font=('Arial', 14, 'bold')).pack(pady=10)
-        ttk.Label(self, text="For each qubit, set |0⟩ and |1⟩ amplitudes (real + imag*i)",
-                 font=('Arial', 9)).pack(pady=5)
-        
-        # Scrollable frame
-        canvas = tk.Canvas(self)
-        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        self.qubit_entries = []
-        
-        for q in range(num_qubits):
-            frame = ttk.LabelFrame(scrollable_frame, text=f"Qubit q{q}", padding=10)
-            frame.pack(fill=tk.X, padx=10, pady=5)
-            
-            # |0⟩ amplitude
-            ttk.Label(frame, text="|0⟩ amplitude:").grid(row=0, column=0, sticky=tk.W)
-            real0 = ttk.Entry(frame, width=10)
-            real0.insert(0, "1" if q == 0 else "0")
-            real0.grid(row=0, column=1, padx=2)
-            ttk.Label(frame, text="+").grid(row=0, column=2)
-            imag0 = ttk.Entry(frame, width=10)
-            imag0.insert(0, "0")
-            imag0.grid(row=0, column=3, padx=2)
-            ttk.Label(frame, text="i").grid(row=0, column=4)
-            
-            # |1⟩ amplitude
-            ttk.Label(frame, text="|1⟩ amplitude:").grid(row=1, column=0, sticky=tk.W, pady=(5,0))
-            real1 = ttk.Entry(frame, width=10)
-            real1.insert(0, "0")
-            real1.grid(row=1, column=1, padx=2, pady=(5,0))
-            ttk.Label(frame, text="+").grid(row=1, column=2, pady=(5,0))
-            imag1 = ttk.Entry(frame, width=10)
-            imag1.insert(0, "0")
-            imag1.grid(row=1, column=3, padx=2, pady=(5,0))
-            ttk.Label(frame, text="i").grid(row=1, column=4, pady=(5,0))
-            
-            # Preset buttons
-            preset_frame = ttk.Frame(frame)
-            preset_frame.grid(row=2, column=0, columnspan=5, pady=(10,0))
-            
-            ttk.Button(preset_frame, text="|0⟩", 
-                      command=lambda r0=real0, i0=imag0, r1=real1, i1=imag1: 
-                      self.set_preset(r0, i0, r1, i1, "0")).pack(side=tk.LEFT, padx=2)
-            ttk.Button(preset_frame, text="|1⟩", 
-                      command=lambda r0=real0, i0=imag0, r1=real1, i1=imag1: 
-                      self.set_preset(r0, i0, r1, i1, "1")).pack(side=tk.LEFT, padx=2)
-            ttk.Button(preset_frame, text="|+⟩", 
-                      command=lambda r0=real0, i0=imag0, r1=real1, i1=imag1: 
-                      self.set_preset(r0, i0, r1, i1, "+")).pack(side=tk.LEFT, padx=2)
-            ttk.Button(preset_frame, text="|-⟩", 
-                      command=lambda r0=real0, i0=imag0, r1=real1, i1=imag1: 
-                      self.set_preset(r0, i0, r1, i1, "-")).pack(side=tk.LEFT, padx=2)
-            
-            self.qubit_entries.append({
-                'real0': real0, 'imag0': imag0,
-                'real1': real1, 'imag1': imag1
-            })
-        
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Buttons
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(pady=10)
-        
-        ttk.Button(btn_frame, text="Apply", command=self.apply).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Reset to |0...0⟩", command=self.reset).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
-    
-    def set_preset(self, real0, imag0, real1, imag1, preset) -> None:
-        presets = {
-            "0": ("1", "0", "0", "0"),
-            "1": ("0", "0", "1", "0"),
-            "+": (str(1/math.sqrt(2)), "0", str(1/math.sqrt(2)), "0"),
-            "-": (str(1/math.sqrt(2)), "0", str(-1/math.sqrt(2)), "0")
-        }
-        
-        if preset in presets:
-            r0, i0, r1, i1 = presets[preset]
-            real0.delete(0, tk.END)
-            real0.insert(0, r0)
-            imag0.delete(0, tk.END)
-            imag0.insert(0, i0)
-            real1.delete(0, tk.END)
-            real1.insert(0, r1)
-            imag1.delete(0, tk.END)
-            imag1.insert(0, i1)
-
-    def apply(self) -> None:
-        try:
-            # Parse all qubit states
-            qubit_states = []
-            for entries in self.qubit_entries:
-                r0_str = entries['real0'].get().strip()
-                i0_str = entries['imag0'].get().strip()
-                r1_str = entries['real1'].get().strip()
-                i1_str = entries['imag1'].get().strip()
-                
-                # Default to |0⟩ state if all fields are empty
-                if not r0_str and not i0_str and not r1_str and not i1_str:
-                    r0, i0, r1, i1 = 1.0, 0.0, 0.0, 0.0
-                else:
-                    # Parse with default values of 0 for empty fields
-                    r0 = float(r0_str) if r0_str else 0.0
-                    i0 = float(i0_str) if i0_str else 0.0
-                    r1 = float(r1_str) if r1_str else 0.0
-                    i1 = float(i1_str) if i1_str else 0.0
-
-                # Normalize
-                norm = math.sqrt(r0*r0 + i0*i0 + r1*r1 + i1*i1)
-                if norm < 1e-10:
-                    raise ValueError("State cannot be zero")
-                
-                qubit_states.append([
-                    Complex(r0/norm, i0/norm),
-                    Complex(r1/norm, i1/norm)
-                ])
-            
-            # Compute tensor product
-            result: _state_vector = [Complex(1, 0)]
-            
-            for qubit_state in qubit_states:
-                new_result = []
-                for amp in result:
-                    for qubit_amp in qubit_state:
-                        new_result.append(amp.multiply(qubit_amp))
-                result = new_result
-            
-            self.result = result
-            self.destroy()
-            
-        except ValueError as e:
-            messagebox.showerror("Invalid Input", f"Please enter valid numbers:\n{str(e)}")
-
-    def reset(self) -> None:
-        # Reset UI fields
-        for i, entries in enumerate(self.qubit_entries):
-            entries['real0'].delete(0, tk.END)
-            entries['real0'].insert(0, "1" if i == 0 else "0")
-            entries['imag0'].delete(0, tk.END)
-            entries['imag0'].insert(0, "0")
-            entries['real1'].delete(0, tk.END)
-            entries['real1'].insert(0, "0")
-            entries['imag1'].delete(0, tk.END)
-            entries['imag1'].insert(0, "0")
-        
-        # Actually apply the reset state (|0...0⟩)
-        self.apply()
-
-    def cancel(self) -> None:
-        self.result = None
-        self.destroy()
-
 
 class QuantumSimulatorGUI:
     """Main GUI application"""
@@ -768,15 +552,6 @@ class QuantumSimulatorGUI:
                 # Draw highlight circle on selected qubits
                 self.canvas.create_oval(x - 20, y - 20, x + 20, y + 20,
                                     outline='#ff6b6b', width=3, dash=(5, 5))
-            
-            # Draw instruction text
-            gate_info = QuantumGates.GATES.get(self.pending_gate['name'])
-            remaining = gate_info['qubits'] - len(self.selected_qubits) #type: ignore
-            instruction = f"Placing {self.pending_gate['name']}: Select {remaining} more qubit(s)"
-            self.canvas.create_text(lm + 10 * tsw, tm - 40,
-                                text=instruction, fill='#ff6b6b',
-                                font=('Arial', int(14 * self.zoom), 'bold'),
-                                anchor='center')
         # Draw gates
         for gate in self.circuit_gates:
             self.draw_gate(gate, lm, tm, ws, gw, gh, tsw)
@@ -1207,13 +982,49 @@ class QuantumSimulatorGUI:
         self.update_circuit_info()
 
     def export_circuit(self) -> None:
+        """Export circuit as JSON, PNG, or SVG"""
+        # Create custom dialog for format selection
+        format_dialog = tk.Toplevel(self.root)
+        format_dialog.title("Export Format")
+        format_dialog.geometry("300x200")
+        format_dialog.transient(self.root)
+        format_dialog.grab_set()
+        
+        result = {'format': None}
+        
+        ttk.Label(format_dialog, text="Select Export Format:", 
+                font=('Arial', 12, 'bold')).pack(pady=20)
+        
+        def select_format(fmt) -> None:
+            result['format'] = fmt
+            format_dialog.destroy()
+        
+        ttk.Button(format_dialog, text="SVG (Vector - Best Quality)", 
+                command=lambda: select_format('svg')).pack(pady=5, fill=tk.X, padx=40)
+        ttk.Button(format_dialog, text="PNG (Raster Image)", 
+                command=lambda: select_format('png')).pack(pady=5, fill=tk.X, padx=40)
+        ttk.Button(format_dialog, text="JSON (Data Only)", 
+                command=lambda: select_format('json')).pack(pady=5, fill=tk.X, padx=40)
+        ttk.Button(format_dialog, text="Cancel", 
+                command=format_dialog.destroy).pack(pady=10)
+        
+        self.root.wait_window(format_dialog)
+        
+        if result['format'] == 'svg':
+            self.export_circuit_svg()
+        elif result['format'] == 'png':
+            self.export_circuit_png()
+        elif result['format'] == 'json':
+            self.export_circuit_json()
+
+    def export_circuit_json(self) -> None:
+        """Export circuit as JSON"""
         filename = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
         )
         
         if filename:
-            # Convert initial state to serializable format
             initial_state_data = None
             if self.circuit.initial_state is not None:
                 initial_state_data = [[amp.r, amp.i] for amp in self.circuit.initial_state]
@@ -1229,29 +1040,705 @@ class QuantumSimulatorGUI:
             
             messagebox.showinfo("Export", "Circuit exported successfully!")
 
-    def import_circuit(self) -> None:
-        filename = filedialog.askopenfilename(
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+    def export_circuit_png(self) -> None:
+        """Export circuit as high-quality PNG with states and probabilities"""
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")]
         )
         
-        if filename:
-            try:
-                with open(filename, 'r') as f:
-                    circuit_data = json.load(f)
-                
-                self.circuit = QuantumCircuit(circuit_data['num_qubits'])
-                
-                # Restore initial state if present
-                if circuit_data.get('initial_state'):
-                    initial_state = [Complex(amp[0], amp[1]) for amp in circuit_data['initial_state']]
-                    self.circuit.set_initial_state(initial_state)
-                
-                self.circuit_gates = circuit_data.get('gates', [])
-                self.draw_circuit()
-                self.update_scroll_region()
-                self.update_circuit_info()
-                self.update_initial_state_display()
-                
-                messagebox.showinfo("Import", "Circuit imported successfully!")
-            except Exception as e:
-                messagebox.showerror("Import Error", f"Failed to import circuit:\n{str(e)}")
+        if not filename:
+            return
+        
+        try:
+            from PIL import Image, PngImagePlugin
+
+            # Calculate circuit dimensions
+            max_time = max([g['time'] for g in self.circuit_gates], default=2) + 2
+            
+            zoom = 2.0  
+            ws = int(self.wire_spacing * zoom)
+            gw = int(self.gate_width * zoom)
+            gh = int(self.gate_height * zoom)
+            tsw = int(self.time_step_width * zoom)
+
+            # Calculate circuit dimensions
+            circuit_width = max_time * tsw + 100
+            circuit_height = self.circuit.num_qubits * ws + 80
+            
+            # Layout dimensions
+            state_width = 350
+            padding = 30
+            
+            # Total dimensions
+            export_width = state_width + circuit_width + state_width + padding * 4
+            prob_height = 600
+            total_height = circuit_height + prob_height + padding * 3
+            
+            # Create hidden window
+            export_window = tk.Toplevel(self.root)
+            export_window.withdraw()
+            
+            # Create canvas
+            export_canvas = tk.Canvas(export_window, 
+                                    width=export_width, 
+                                    height=total_height,
+                                    bg='white')
+            export_canvas.pack()
+            
+            # --- Draw Initial State Section ---
+            y_offset = padding
+            export_canvas.create_text(padding, y_offset, 
+                                    text="Initial State", 
+                                    font=('Arial', 16, 'bold'),
+                                    anchor='nw')
+            y_offset += 30
+            
+            initial_state = self.circuit.initialize_state()
+            state_str = ''
+            for i, amp in enumerate(initial_state):
+                if amp.magnitude() > 1e-10:
+                    label = '|' + bin(i)[2:].zfill(self.circuit.num_qubits) + '⟩'
+                    state_str += f"{amp}{label}\n"
+            
+            export_canvas.create_text(padding, y_offset,
+                                    text=state_str if state_str else '|0⟩',
+                                    font=('Arial', 12),
+                                    anchor='nw')
+            
+            # --- Draw Circuit Section ---
+            circuit_y = padding
+            circuit_x = state_width
+            
+            export_canvas.create_text(circuit_x, circuit_y,
+                                    text="Circuit Diagram",
+                                    font=('Arial', 16, 'bold'),
+                                    anchor='nw')
+            circuit_y += 40
+            
+            lm = circuit_x + 50
+            tm = circuit_y + 20
+            
+            # Draw wires
+            for q in range(self.circuit.num_qubits):
+                y = tm + q * ws
+                export_canvas.create_line(lm, y, lm + max_time * tsw, y, 
+                                        fill='#333', width=2)
+                export_canvas.create_text(lm - 30, y, text=f'q{q}', 
+                                        font=('Arial', 12, 'bold'))
+            
+            # Draw gates
+            for gate in self.circuit_gates:
+                self.draw_gate_on_export_canvas(gate, lm, tm, ws, gw, gh, tsw, 
+                                            export_canvas, zoom)
+            
+            # --- Draw Final State Section ---
+            final_x = circuit_x + max_time * tsw + 150
+            export_canvas.create_text(final_x, padding,
+                                    text="Final State",
+                                    font=('Arial', 16, 'bold'),
+                                    anchor='nw')
+            
+            results = self.circuit.get_results()
+            if isinstance(results, tuple):
+                results, _ = results
+            
+            final_state_str = ''
+            for i, amp in enumerate(results['state_vector']):
+                if results['probabilities'][i] > 1e-10:
+                    final_state_str += f"{amp}{results['state_labels'][i]}\n"
+            
+            export_canvas.create_text(final_x, padding + 30,
+                                    text=final_state_str if final_state_str else '|0⟩',
+                                    font=('Arial', 12),
+                                    anchor='nw')
+            
+            # --- Draw Probabilities Section ---
+            prob_y = circuit_height + padding * 2
+            export_canvas.create_text(padding, prob_y,
+                                    text="Measurement Probabilities",
+                                    font=('Arial', 16, 'bold'),
+                                    anchor='nw')
+            prob_y += 40
+            
+            col_count = 4
+            col_width = (export_width - padding * 2) // col_count
+            row = 0
+            col = 0
+            
+            for i, prob in enumerate(results['probabilities']):
+                if prob > 1e-10:
+                    x = padding + col * col_width
+                    y = prob_y + row * 120
+                    
+                    export_canvas.create_text(x + 10, y,
+                                            text=results['state_labels'][i],
+                                            font=('Arial', 14, 'bold'),
+                                            anchor='nw')
+                    
+                    bar_width = 180
+                    bar_height = 30
+                    bar_x = x + 10
+                    bar_y = y + 30
+                    
+                    export_canvas.create_rectangle(bar_x, bar_y,
+                                                bar_x + bar_width, bar_y + bar_height,
+                                                fill='#e9ecef', outline='#ccc')
+                    
+                    filled_width = int(bar_width * prob)
+                    export_canvas.create_rectangle(bar_x, bar_y,
+                                                bar_x + filled_width, bar_y + bar_height,
+                                                fill='#28a745', outline='')
+                    
+                    export_canvas.create_text(bar_x + bar_width//2, bar_y + bar_height//2,
+                                            text=f"{prob*100:.2f}%",
+                                            font=('Arial', 12, 'bold'))
+                    
+                    col += 1
+                    if col >= col_count:
+                        col = 0
+                        row += 1
+            
+            export_window.update()
+            
+            # Save to PostScript
+            ps_file = filename.replace('.png', '_temp.ps')
+            export_canvas.postscript(file=ps_file, colormode='color',
+                                    width=export_width, height=total_height)
+            
+            # Convert to PNG with metadata
+            img = Image.open(ps_file)
+            
+            # Create circuit JSON for metadata
+            initial_state_data = None
+            if self.circuit.initial_state is not None:
+                initial_state_data = [[amp.r, amp.i] for amp in self.circuit.initial_state]
+            
+            circuit_data = {
+                'num_qubits': self.circuit.num_qubits,
+                'gates': self.circuit_gates,
+                'initial_state': initial_state_data
+            }
+            
+            # Encode to base64
+            import base64
+            circuit_json = json.dumps(circuit_data)
+            circuit_b64 = base64.b64encode(circuit_json.encode('utf-8')).decode('ascii')
+            
+            # Add metadata
+            metadata = PngImagePlugin.PngInfo()
+            metadata.add_text("QuantumCircuit", circuit_b64)
+            metadata.add_text("Description", "Quantum Circuit Simulator Export")
+            
+            # Save 
+            img.save(filename, 'PNG', pnginfo=metadata, dpi=(500, 500))
+            
+            # Cleanup
+            import os
+            os.remove(ps_file)
+            
+            export_window.destroy()
+            messagebox.showinfo("Export", "Circuit exported as PNG with embedded data!")
+            
+        except ImportError:
+            messagebox.showerror("Export Error", 
+                "Pillow library required for PNG export.\nInstall with: pip install pillow")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export PNG:\n{str(e)}")
+
+
+    def draw_gate_on_export_canvas(self, gate, lm, tm, ws, gw, gh, tsw, canvas, zoom) -> None:
+        """Draw gate on export canvas"""
+        x = lm + gate['time'] * tsw
+        y = tm + gate['qubits'][0] * ws
+        
+        if gate['gate'] in ['CNOT', 'CZ']:
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            control_y = y
+            target_y = y + ws * (gate['qubits'][1] - gate['qubits'][0])
+            
+            canvas.create_line(x, control_y, x, target_y, fill='#333', width=2)
+            canvas.create_oval(x - 6, control_y - 6, x + 6, control_y + 6,
+                            fill='#333', outline='#333')
+            
+            r = int(15 * zoom)
+            canvas.create_oval(x - r, target_y - r, x + r, target_y + r,
+                            outline='#333', width=2)
+            canvas.create_line(x - 10, target_y, x + 10, target_y, fill='#333', width=2)
+            canvas.create_line(x, target_y - 10, x, target_y + 10, fill='#333', width=2)
+            
+        elif gate['gate'] == 'SWAP':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            y1 = y
+            y2 = y + ws * (gate['qubits'][1] - gate['qubits'][0])
+            
+            canvas.create_line(x, y1, x, y2, fill='#333', width=2)
+            
+            size = int(8 * zoom)
+            for yy in [y1, y2]:
+                canvas.create_line(x - size, yy - size, x + size, yy + size,
+                                fill='#333', width=3)
+                canvas.create_line(x + size, yy - size, x - size, yy + size,
+                                fill='#333', width=3)
+                                
+        elif gate['gate'] == 'CCNOT':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            qubits = gate['qubits']
+            base_qubit = qubits[0]
+            control1_y = y + ws * (qubits[0] - base_qubit)
+            control2_y = y + ws * (qubits[1] - base_qubit)
+            target_y = y + ws * (qubits[2] - base_qubit)
+            
+            min_y = min(control1_y, control2_y, target_y)
+            max_y = max(control1_y, control2_y, target_y)
+            canvas.create_line(x, min_y, x, max_y, fill='#333', width=2)
+            
+            for cy in [control1_y, control2_y]:
+                canvas.create_oval(x - 6, cy - 6, x + 6, cy + 6,
+                                fill='#333', outline='#333')
+            
+            r = int(15 * zoom)
+            canvas.create_oval(x - r, target_y - r, x + r, target_y + r,
+                            outline='#333', width=2)
+            canvas.create_line(x - 10, target_y, x + 10, target_y, fill='#333', width=2)
+            canvas.create_line(x, target_y - 10, x, target_y + 10, fill='#333', width=2)
+            
+        elif gate['gate'] == 'M':
+            canvas.create_rectangle(x - gw//2, y - gh//2, x + gw//2, y + gh//2,
+                                fill='#ffd700', outline='#333', width=2)
+            
+            r = int(8 * zoom)
+            canvas.create_arc(x - r, y - r//2, x + r, y + r//2,
+                            start=180, extent=180, style=tk.ARC,
+                            outline='#333', width=2)
+            canvas.create_line(x, y, x + r, y - r, fill='#333', width=2)
+        else:
+            # Single qubit gate
+            canvas.create_rectangle(x - gw//2, y - gh//2, x + gw//2, y + gh//2,
+                                fill='#667eea', outline='#333', width=2)
+            canvas.create_text(x, y, text=gate['gate'], fill='white',
+                            font=('Arial', int(12 * zoom), 'bold'))
+            
+    def export_circuit_svg(self) -> None:
+        """Export circuit as SVG with embedded circuit data"""
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".svg",
+            filetypes=[("SVG files", "*.svg"), ("All files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            import base64
+            
+            # Calculate dimensions
+            max_time = max([g['time'] for g in self.circuit_gates], default=2) + 2
+            
+            # SVG uses absolute coordinates
+            ws = 80  # wire spacing
+            gw = 50  # gate width
+            gh = 40  # gate height
+            tsw = 100  # time step width
+            
+            circuit_width = max_time * tsw + 100
+            circuit_height = self.circuit.num_qubits * ws + 80
+            
+            state_width = 350
+            padding = 30
+            
+            export_width = max(1800, state_width + circuit_width + state_width + padding * 4)
+            prob_height = 600
+            total_height = circuit_height + prob_height + padding * 3
+            
+            lm = state_width + 50  # left margin for circuit
+            tm = padding + 60  # top margin for circuit
+            
+            # Start SVG
+            svg_lines = []
+            svg_lines.append(f'<?xml version="1.0" encoding="UTF-8"?>')
+            svg_lines.append(f'<svg xmlns="http://www.w3.org/2000/svg" '
+                            f'width="{export_width}" height="{total_height}" '
+                            f'viewBox="0 0 {export_width} {total_height}">')
+            
+            # White background
+            svg_lines.append(f'<rect width="{export_width}" height="{total_height}" fill="white"/>')
+            
+            # Embed circuit data as metadata
+            initial_state_data = None
+            if self.circuit.initial_state is not None:
+                initial_state_data = [[amp.r, amp.i] for amp in self.circuit.initial_state]
+            
+            circuit_data = {
+                'num_qubits': self.circuit.num_qubits,
+                'gates': self.circuit_gates,
+                'initial_state': initial_state_data
+            }
+            
+            circuit_json = json.dumps(circuit_data)
+            circuit_b64 = base64.b64encode(circuit_json.encode('utf-8')).decode('ascii')
+            
+            svg_lines.append(f'<metadata>')
+            svg_lines.append(f'  <quantum-circuit>{circuit_b64}</quantum-circuit>')
+            svg_lines.append(f'</metadata>')
+            
+            # --- Initial State Section ---
+            y_offset = padding
+            svg_lines.append(f'<text x="{padding}" y="{y_offset + 16}" '
+                            f'font-family="Arial" font-size="16" font-weight="bold" fill="black">'
+                            f'Initial State</text>')
+            y_offset += 30
+            
+            initial_state = self.circuit.initialize_state()
+            line_y = y_offset
+            for i, amp in enumerate(initial_state):
+                if amp.magnitude() > 1e-10:
+                    label = '|' + bin(i)[2:].zfill(self.circuit.num_qubits) + '⟩'
+                    text = f"{amp}{label}"
+                    svg_lines.append(f'<text x="{padding}" y="{line_y + 12}" '
+                                f'font-family="Arial" font-size="12" fill="black">{self._escape_xml(text)}</text>')
+                    line_y += 20
+            
+            # --- Circuit Section ---
+            circuit_y = padding
+            circuit_x = state_width
+            
+            svg_lines.append(f'<text x="{circuit_x}" y="{circuit_y + 16}" '
+                            f'font-family="Arial" font-size="16" font-weight="bold" fill="black">'
+                            f'Circuit Diagram</text>')
+            
+            # Draw wires
+            for q in range(self.circuit.num_qubits):
+                y = tm + q * ws
+                svg_lines.append(f'<line x1="{lm}" y1="{y}" x2="{lm + max_time * tsw}" y2="{y}" '
+                            f'stroke="#333" stroke-width="2"/>')
+                svg_lines.append(f'<text x="{lm - 30}" y="{y + 5}" '
+                            f'font-family="Arial" font-size="12" font-weight="bold" '
+                            f'text-anchor="middle" fill="black">q{q}</text>')
+            
+            # Draw gates
+            for gate in self.circuit_gates:
+                svg_lines.extend(self.draw_gate_svg(gate, lm, tm, ws, gw, gh, tsw))
+            
+            # --- Final State Section ---
+            final_x = circuit_x + max_time * tsw + 150
+            svg_lines.append(f'<text x="{final_x}" y="{padding + 16}" '
+                            f'font-family="Arial" font-size="16" font-weight="bold" fill="black">'
+                            f'Final State</text>')
+            
+            results = self.circuit.get_results()
+            if isinstance(results, tuple):
+                results, _ = results
+            
+            line_y = padding + 30
+            for i, amp in enumerate(results['state_vector']):
+                if results['probabilities'][i] > 1e-10:
+                    text = f"{amp}{results['state_labels'][i]}"
+                    svg_lines.append(f'<text x="{final_x}" y="{line_y + 12}" '
+                                f'font-family="Arial" font-size="12" fill="black">{self._escape_xml(text)}</text>')
+                    line_y += 20
+            
+            # --- Probabilities Section ---
+            prob_y = circuit_height + padding * 2
+            svg_lines.append(f'<text x="{padding}" y="{prob_y + 16}" '
+                            f'font-family="Arial" font-size="16" font-weight="bold" fill="black">'
+                            f'Measurement Probabilities</text>')
+            prob_y += 40
+            
+            col_count = 4
+            col_width = (export_width - padding * 2) // col_count
+            row = 0
+            col = 0
+            
+            for i, prob in enumerate(results['probabilities']):
+                if prob > 1e-10:
+                    x = padding + col * col_width
+                    y = prob_y + row * 120
+                    
+                    # State label
+                    svg_lines.append(f'<text x="{x + 10}" y="{y + 14}" '
+                                f'font-family="Arial" font-size="14" font-weight="bold" fill="black">'
+                                f'{self._escape_xml(results["state_labels"][i])}</text>')
+                    
+                    # Probability bar
+                    bar_width = 180
+                    bar_height = 30
+                    bar_x = x + 10
+                    bar_y = y + 30
+                    
+                    svg_lines.append(f'<rect x="{bar_x}" y="{bar_y}" width="{bar_width}" height="{bar_height}" '
+                                f'fill="#e9ecef" stroke="#ccc"/>')
+                    
+                    filled_width = int(bar_width * prob)
+                    svg_lines.append(f'<rect x="{bar_x}" y="{bar_y}" width="{filled_width}" height="{bar_height}" '
+                                f'fill="#28a745"/>')
+                    
+                    # Percentage text
+                    svg_lines.append(f'<text x="{bar_x + bar_width//2}" y="{bar_y + bar_height//2 + 5}" '
+                                f'font-family="Arial" font-size="12" font-weight="bold" '
+                                f'text-anchor="middle" fill="black">{prob*100:.2f}%</text>')
+                    
+                    col += 1
+                    if col >= col_count:
+                        col = 0
+                        row += 1
+            
+            # Close SVG
+            svg_lines.append('</svg>')
+            
+            # Write file
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(svg_lines))
+            
+            messagebox.showinfo("Export", "Circuit exported as SVG successfully!")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export SVG:\n{str(e)}")
+
+    def _escape_xml(self, text) -> str:
+        """Escape special XML characters"""
+        return (text.replace('&', '&amp;')
+                    .replace('<', '&lt;')
+                    .replace('>', '&gt;')
+                    .replace('"', '&quot;')
+                    .replace("'", '&apos;'))
+
+    def draw_gate_svg(self, gate, lm, tm, ws, gw, gh, tsw) -> list:
+        """Generate SVG elements for a gate"""
+        svg_elements = []
+        x = lm + gate['time'] * tsw
+        y = tm + gate['qubits'][0] * ws
+        
+        if gate['gate'] in ['CNOT', 'CZ']:
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            control_y = y
+            target_y = y + ws * (gate['qubits'][1] - gate['qubits'][0])
+            
+            # Connecting line
+            svg_elements.append(f'<line x1="{x}" y1="{control_y}" x2="{x}" y2="{target_y}" '
+                            f'stroke="#333" stroke-width="2"/>')
+            
+            # Control dot
+            svg_elements.append(f'<circle cx="{x}" cy="{control_y}" r="6" fill="#333"/>')
+            
+            # Target circle
+            r = 15
+            svg_elements.append(f'<circle cx="{x}" cy="{target_y}" r="{r}" '
+                            f'fill="none" stroke="#333" stroke-width="2"/>')
+            svg_elements.append(f'<line x1="{x - 10}" y1="{target_y}" x2="{x + 10}" y2="{target_y}" '
+                            f'stroke="#333" stroke-width="2"/>')
+            svg_elements.append(f'<line x1="{x}" y1="{target_y - 10}" x2="{x}" y2="{target_y + 10}" '
+                            f'stroke="#333" stroke-width="2"/>')
+            
+        elif gate['gate'] == 'SWAP':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            y1 = y
+            y2 = y + ws * (gate['qubits'][1] - gate['qubits'][0])
+            
+            # Connecting line
+            svg_elements.append(f'<line x1="{x}" y1="{y1}" x2="{x}" y2="{y2}" '
+                            f'stroke="#333" stroke-width="2"/>')
+            
+            # X symbols
+            size = 8
+            for yy in [y1, y2]:
+                svg_elements.append(f'<line x1="{x - size}" y1="{yy - size}" '
+                                f'x2="{x + size}" y2="{yy + size}" '
+                                f'stroke="#333" stroke-width="3"/>')
+                svg_elements.append(f'<line x1="{x + size}" y1="{yy - size}" '
+                                f'x2="{x - size}" y2="{yy + size}" '
+                                f'stroke="#333" stroke-width="3"/>')
+        
+        elif gate['gate'] == 'CCNOT':
+            offset = self.get_gate_horizontal_offset(gate)
+            x += offset * tsw
+            qubits = gate['qubits']
+            base_qubit = qubits[0]
+            control1_y = y + ws * (qubits[0] - base_qubit)
+            control2_y = y + ws * (qubits[1] - base_qubit)
+            target_y = y + ws * (qubits[2] - base_qubit)
+            
+            min_y = min(control1_y, control2_y, target_y)
+            max_y = max(control1_y, control2_y, target_y)
+            
+            # Connecting line
+            svg_elements.append(f'<line x1="{x}" y1="{min_y}" x2="{x}" y2="{max_y}" '
+                            f'stroke="#333" stroke-width="2"/>')
+            
+            # Control dots
+            for cy in [control1_y, control2_y]:
+                svg_elements.append(f'<circle cx="{x}" cy="{cy}" r="6" fill="#333"/>')
+            
+            # Target
+            r = 15
+            svg_elements.append(f'<circle cx="{x}" cy="{target_y}" r="{r}" '
+                            f'fill="none" stroke="#333" stroke-width="2"/>')
+            svg_elements.append(f'<line x1="{x - 10}" y1="{target_y}" x2="{x + 10}" y2="{target_y}" '
+                            f'stroke="#333" stroke-width="2"/>')
+            svg_elements.append(f'<line x1="{x}" y1="{target_y - 10}" x2="{x}" y2="{target_y + 10}" '
+                            f'stroke="#333" stroke-width="2"/>')
+        
+        elif gate['gate'] == 'M':
+            # Measurement gate
+            svg_elements.append(f'<rect x="{x - gw//2}" y="{y - gh//2}" '
+                            f'width="{gw}" height="{gh}" '
+                            f'fill="#ffd700" stroke="#333" stroke-width="2"/>')
+            
+            # Measurement symbol (arc + arrow)
+            r = 8
+            svg_elements.append(f'<path d="M {x - r} {y} A {r} {r//2} 0 0 1 {x + r} {y}" '
+                            f'fill="none" stroke="#333" stroke-width="2"/>')
+            svg_elements.append(f'<line x1="{x}" y1="{y}" x2="{x + r}" y2="{y - r}" '
+                            f'stroke="#333" stroke-width="2"/>')
+        
+        else:
+            # Single qubit gate
+            svg_elements.append(f'<rect x="{x - gw//2}" y="{y - gh//2}" '
+                            f'width="{gw}" height="{gh}" '
+                            f'fill="#667eea" stroke="#333" stroke-width="2"/>')
+            svg_elements.append(f'<text x="{x}" y="{y + 5}" '
+                            f'font-family="Arial" font-size="12" font-weight="bold" '
+                            f'text-anchor="middle" fill="white">{gate["gate"]}</text>')
+        
+        return svg_elements
+
+    def import_circuit(self) -> None:
+        """Import circuit from JSON, PNG, or SVG"""
+        filename = filedialog.askopenfilename(
+            filetypes=[("Circuit files", "*.json *.png *.svg"), 
+                    ("JSON files", "*.json"),
+                    ("PNG files", "*.png"),
+                    ("SVG files", "*.svg"),
+                    ("All files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            if filename.lower().endswith('.png'):
+                self.import_circuit_png(filename)
+            elif filename.lower().endswith('.svg'):
+                self.import_circuit_svg(filename)
+            else:
+                self.import_circuit_json(filename)
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to import circuit:\n{str(e)}")
+
+
+    def import_circuit_json(self, filename) -> None:
+        """Import circuit from JSON file"""
+        with open(filename, 'r') as f:
+            circuit_data = json.load(f)
+        
+        self.circuit = QuantumCircuit(circuit_data['num_qubits'])
+        
+        if circuit_data.get('initial_state'):
+            initial_state = [Complex(amp[0], amp[1]) for amp in circuit_data['initial_state']]
+            self.circuit.set_initial_state(initial_state)
+        
+        self.circuit_gates = circuit_data.get('gates', [])
+        self.draw_circuit()
+        self.update_scroll_region()
+        self.update_circuit_info()
+        self.update_initial_state_display()
+        
+        messagebox.showinfo("Import", "Circuit imported successfully!")
+
+    def import_circuit_png(self, filename) -> None:
+        """Import circuit from PNG file with embedded metadata"""
+        try:
+            from PIL import Image
+            import base64
+            
+            img = Image.open(filename)
+            
+            # Check for circuit metadata
+            if 'QuantumCircuit' not in img.info:
+                messagebox.showerror("Import Error", 
+                    "This PNG does not contain quantum circuit data.\n"
+                    "Only PNGs exported by this simulator can be imported.")
+                return
+            
+            # Decode circuit data
+            circuit_b64 = img.info['QuantumCircuit']
+            circuit_json = base64.b64decode(circuit_b64.encode('ascii')).decode('utf-8')
+            circuit_data = json.loads(circuit_json)
+            
+            # Load circuit
+            self.circuit = QuantumCircuit(circuit_data['num_qubits'])
+            
+            if circuit_data.get('initial_state'):
+                initial_state = [Complex(amp[0], amp[1]) for amp in circuit_data['initial_state']]
+                self.circuit.set_initial_state(initial_state)
+            
+            self.circuit_gates = circuit_data.get('gates', [])
+            self.draw_circuit()
+            self.update_scroll_region()
+            self.update_circuit_info()
+            self.update_initial_state_display()
+            
+            messagebox.showinfo("Import", "Circuit imported from PNG successfully!")
+            
+        except ImportError:
+            messagebox.showerror("Import Error",
+                "Pillow library required for PNG import.\nInstall with: pip install pillow")
+        except KeyError:
+            messagebox.showerror("Import Error",
+                "This PNG does not contain valid quantum circuit data.")
+            
+    def import_circuit_svg(self, filename) -> None:
+        """Import circuit from SVG file with embedded metadata"""
+        try:
+            import base64
+            import xml.etree.ElementTree as ET
+            
+            # Parse the SVG file
+            tree = ET.parse(filename)
+            root = tree.getroot()
+            
+            circuit_b64 = None
+            
+            for elem in root.iter():
+                if elem.tag.endswith('quantum-circuit') or elem.tag == 'quantum-circuit':
+                    if elem.text:
+                        circuit_b64 = elem.text
+                        break
+            
+            if not circuit_b64:
+                messagebox.showerror("Import Error",
+                    "This SVG does not contain quantum circuit data.\n"
+                    "Only SVGs exported by this simulator can be imported.")
+                return
+        
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to import SVG:\n{str(e)}")
+            
+        # Decode circuit data
+        try:
+            circuit_json = base64.b64decode(circuit_b64.strip().encode('ascii')).decode('utf-8') #type: ignore
+            circuit_data = json.loads(circuit_json)
+        except Exception:
+            messagebox.showerror("Import Error",
+                "Failed to decode circuit data from SVG metadata.")
+            return
+            
+        # Load circuit
+        self.circuit = QuantumCircuit(circuit_data['num_qubits'])
+        
+        if circuit_data.get('initial_state'):
+            initial_state = [Complex(amp[0], amp[1]) for amp in circuit_data['initial_state']]
+            self.circuit.set_initial_state(initial_state)
+        
+        self.circuit_gates = circuit_data.get('gates', [])
+        self.draw_circuit()
+        self.update_scroll_region()
+        self.update_circuit_info()
+        self.update_initial_state_display()
+        
+        messagebox.showinfo("Import", "Circuit imported from SVG successfully!")
