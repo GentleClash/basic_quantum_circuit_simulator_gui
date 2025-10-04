@@ -235,8 +235,7 @@ class ExportImportManager:
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(svg_lines))
             
-            messagebox.showinfo("Export", "Circuit exported as SVG successfully!\n"
-                              "SVG maintains quality at any zoom level.")
+            messagebox.showinfo("Export", "Circuit exported as SVG successfully!")
             
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export SVG:\n{str(e)}")
@@ -534,7 +533,7 @@ class ExportImportManager:
             os.remove(ps_file)
             
             export_window.destroy()
-            messagebox.showinfo("Export", "Circuit exported as PNG with embedded data!")
+            messagebox.showinfo("Export", "Circuit exported as PNG.")
             
         except ImportError:
             messagebox.showerror("Export Error", 

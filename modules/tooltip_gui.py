@@ -4,10 +4,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import math
 
-
-
-
-type _matrix =  List[List[Complex]]
 type _state_vector = List[Complex]
 
 class ToolTip:

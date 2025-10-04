@@ -2,6 +2,8 @@
 
 A quantum circuit simulator with an interactive graphical user interface built using Python and Tkinter. This simulator allows you to design, simulate, and visualize quantum circuits with multiple qubits and various quantum gates.
 
+__Note__: This project is intended for demonstration purposes and does not include advanced features like noise modeling or optimizations.
+
 ## Features
 
 - **Interactive Circuit Design**: Visual circuit builder with drag-and-drop gate placement
@@ -9,7 +11,7 @@ A quantum circuit simulator with an interactive graphical user interface built u
 - **Custom Initial States**: Set arbitrary initial quantum states for qubits
 - **State Visualization**: Real-time visualization of quantum state vectors and probabilities
 - **Measurement Operations**: Perform quantum measurements with state collapse
-- **Circuit Import/Export**: Save and load circuits in JSON format
+- **Circuit Import/Export**: Save and load circuits in JSON, SVG, and PNG formats
 
 ## Installation
 
@@ -17,10 +19,14 @@ A quantum circuit simulator with an interactive graphical user interface built u
 
 - Python 3.10 or higher
 - Tkinter (usually included with Python)
+- Pillow
 
 ### Running the Simulator
 
 ```bash
+git clone https://github.com/GentleClash/basic_quantum_circuit_simulator_gui.git
+cd basic_quantum_circuit_simulator_gui
+pip install -r requirements.txt
 python basic_quantum_sim.py
 ```
 
@@ -334,7 +340,7 @@ $$
 
 ### Saving and Loading Circuits
 
-- **Save**: File → Save Circuit (saves as JSON)
+- **Save**: File → Save Circuit
 - **Load**: File → Load Circuit
 
 ## Implementation Details
@@ -345,7 +351,7 @@ $$
 - **Gate application**: $O(4^n)$ for applying a gate to the full state vector
 - **Memory usage**: $O(2^n)$ complex numbers
 
-**Limitation**: This simulator is practical for up to ~15-20 qubits on typical hardware due to exponential scaling.
+**Limitation**: This simulator is practical for up to 8 qubits on typical hardware due to exponential scaling.
 
 ### Code Structure
 
@@ -353,6 +359,7 @@ $$
 - **QuantumGates class**: Static gate definitions
 - **QuantumCircuit class**: Circuit simulation engine
 - **QuantumSimulatorGUI class**: Tkinter-based user interface
+- **Export/Import module**: Functions for saving/loading circuits and exporting images
 
 ## Known Limitations
 

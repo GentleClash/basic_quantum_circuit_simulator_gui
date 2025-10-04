@@ -1,14 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from modules.tooltip_gui import ToolTip, QubitStateDialog
-from modules.complex_ import Complex
 from modules.circuit import QuantumCircuit
 from modules.gates import QuantumGates
 from modules.export_import import ExportImportManager
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-type _matrix =  List[List[Complex]]
-type _state_vector = List[Complex]
 
 class QuantumSimulatorGUI:
     """Main GUI application"""
@@ -324,7 +321,7 @@ class QuantumSimulatorGUI:
 
             self.prob_maximized = True
 
-            def on_close():
+            def on_close() -> None:
                 self.zoom = self.saved_zoom
                 self.toggle_maximize_probabilities()
 
