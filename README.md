@@ -10,21 +10,19 @@ __Note__: This project is intended for demonstration purposes and does not inclu
 - **Multiple Quantum Gates**: Support for single-qubit, two-qubit, and three-qubit gates
 - **Custom Initial States**: Set arbitrary initial quantum states for qubits
 - **State Visualization**: Real-time visualization of quantum state vectors and probabilities
+- **Bloch Sphere Representation**: Visualize single-qubit states on the Bloch sphere
+- **Step-by-Step Simulation**: Execute circuits step-by-step to observe state evolution
 - **Measurement Operations**: Perform quantum measurements with state collapse
 - **Circuit Import/Export**: Save and load circuits in JSON, SVG, and PNG formats
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.10 or higher
-- Tkinter (usually included with Python)
-- Pillow
-
 ### Running the Simulator
 
 ```bash
 git clone https://github.com/GentleClash/basic_quantum_circuit_simulator_gui.git
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
 cd basic_quantum_circuit_simulator_gui
 pip install -r requirements.txt
 python basic_quantum_sim.py
