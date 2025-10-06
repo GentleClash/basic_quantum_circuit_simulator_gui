@@ -4,8 +4,14 @@ from modules.tooltip_gui import ToolTip, QubitStateDialog
 from modules.circuit import QuantumCircuit
 from modules.gates import QuantumGates
 from modules.export_import import ExportImportManager
+from modules.bloch import BlochSphereVisualizer
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 from typing import Any, Dict, Optional
-
+matplotlib.use('TkAgg')
 
 class QuantumSimulatorGUI:
     """Main GUI application"""
@@ -41,6 +47,8 @@ class QuantumSimulatorGUI:
         self.top_margin = 80
         self.canvas_offset_x = 0
         self.canvas_offset_y = 0
+        self.bloch_canvas = None
+        self.bloch_figure = None
         
         self.setup_ui()
         self.draw_circuit()
@@ -87,6 +95,26 @@ class QuantumSimulatorGUI:
         ttk.Button(left_panel, text="Reset to |0...0⟩", 
                   command=self.reset_initial_state).pack(pady=5, fill=tk.X, padx=5)
         
+        # Bloch Sphere Visualization
+        ttk.Separator(left_panel, orient='horizontal').pack(fill=tk.X, pady=10)
+        bloch_header = ttk.Frame(left_panel)
+        bloch_header.pack(fill=tk.X, pady=5, padx=5)
+
+        ttk.Label(bloch_header, text="Bloch Sphere", font=('Arial', 10, 'bold')).pack(side=tk.LEFT)
+        ttk.Button(bloch_header, text="⤢", width=3, 
+                command=self.maximize_bloch).pack(side=tk.RIGHT)
+
+        # Frame for embedded bloch sphere
+        self.bloch_container = ttk.Frame(left_panel, height=200)
+        self.bloch_container.pack(fill=tk.BOTH, expand=False, pady=5, padx=5)
+        self.bloch_container.pack_propagate(False)  # Maintain fixed height
+
+        self.bloch_note_label = ttk.Label(left_panel, text="", 
+                                        font=('Arial', 8), 
+                                        foreground='#666',
+                                        wraplength=180)
+        self.bloch_note_label.pack(pady=2)
+
         # Center panel - Circuit canvas
         center_panel = ttk.Frame(main_frame)
         center_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -326,6 +354,69 @@ class QuantumSimulatorGUI:
                 self.toggle_maximize_probabilities()
 
             self.maximize_window.protocol("WM_DELETE_WINDOW", on_close)
+    
+    def update_bloch_visualization(self) -> None:
+        """Update embedded Bloch sphere visualization"""
+        try:
+            # Clear previous canvas
+            if self.bloch_canvas:
+                self.bloch_canvas.get_tk_widget().destroy()
+            if self.bloch_figure:
+                plt.close(self.bloch_figure)
+            
+            state = self.circuit.state_vector
+            state_list = [complex(amp.real(), amp.imag()) for amp in state]
+            
+            visualizer = BlochSphereVisualizer(state_list)
+            
+            # Create smaller figure for embedding
+            ncols = min(self.circuit.num_qubits, 2)  # Max 2 columns for left pane
+            nrows = int(np.ceil(self.circuit.num_qubits / ncols))
+            
+            figsize = (3.5 * ncols, 2.5 * nrows)
+            self.bloch_figure = Figure(figsize=figsize, dpi=80)
+            
+            # Draw on the figure 
+            for qubit_idx in range(self.circuit.num_qubits):
+                from qutip import ptrace, Bloch
+                
+                rho_reduced = ptrace(visualizer.qobj, qubit_idx)
+                ax = self.bloch_figure.add_subplot(nrows, ncols, qubit_idx + 1, projection='3d')
+                
+                bloch = Bloch(fig=self.bloch_figure, axes=ax)
+                bloch.add_states(rho_reduced)
+                bloch.zlabel = ['$|0\\rangle$', '$|1\\rangle$']
+                bloch.render()
+                ax.set_title(f'q{qubit_idx}', fontsize=8, pad=5)
+            
+            self.bloch_figure.tight_layout()
+            
+            # Embed in tkinter
+            self.bloch_canvas = FigureCanvasTkAgg(self.bloch_figure, master=self.bloch_container)
+            self.bloch_canvas.draw()
+            self.bloch_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Update note
+            if self.circuit.num_qubits > 1:
+                self.bloch_note_label.config(text="Click ⤢ to maximize view")
+            else:
+                self.bloch_note_label.config(text="")
+                
+        except Exception as e:
+            self.bloch_note_label.config(text=f"Error: {str(e)[:30]}...")
+    
+    def maximize_bloch(self) -> None:
+        """Show maximized Bloch sphere visualization"""
+        try:
+            state = self.circuit.state_vector
+            state_list = [complex(amp.real(), amp.imag()) for amp in state]
+            
+            visualizer = BlochSphereVisualizer(state_list)
+            visualizer.visualize() 
+            
+        except Exception as e:
+            messagebox.showerror("Visualization Error", 
+                            f"Could not visualize:\n{str(e)}")
 
     def draw_circuit_on_maximize_canvas(self) -> None:
         """Draw circuit on maximize canvas"""
@@ -469,12 +560,14 @@ class QuantumSimulatorGUI:
         if dialog.result:
             self.circuit.set_initial_state(dialog.result)
             self.update_initial_state_display()
+            self.update_bloch_visualization()
             messagebox.showinfo("Success", "Initial state has been set!")
     
     def reset_initial_state(self) -> None:
         self.circuit.initial_state = []
         self.circuit.state_vector = self.circuit.initialize_state()
         self.update_initial_state_display()
+        self.update_bloch_visualization()
         self.update_results()
         messagebox.showinfo("Reset", "Initial state reset to |0...0⟩")
 
@@ -852,7 +945,6 @@ class QuantumSimulatorGUI:
             'gate': gate_name,
             'qubits': qubits,
             'time': time,
-            'selected': False
         }
         
         self.circuit_gates.append(gate)
@@ -897,7 +989,8 @@ class QuantumSimulatorGUI:
             # Update display circuit
             self.circuit = temp_circuit
             self.update_results()
-            
+            self.update_bloch_visualization()
+
             # Show measurement results if any
             if measurement_results:
                 msg = "Measurement Results:\n"
@@ -983,30 +1076,6 @@ class QuantumSimulatorGUI:
         """Export circuit as JSON, PNG, or SVG"""
         self.export_manager.export_circuit()
 
-    def export_circuit_json(self) -> None:
-        """Export circuit as JSON"""
-        self.export_manager.export_circuit_json()
-
-    def export_circuit_png(self) -> None:
-        """Export circuit as high-quality PNG with states and probabilities"""
-        self.export_manager.export_circuit_png()
-      
-    def export_circuit_svg(self) -> None:
-        """Export circuit as SVG with embedded circuit data"""
-        self.export_manager.export_circuit_svg()
-
     def import_circuit(self) -> None:
         """Import circuit from JSON, PNG, or SVG"""
         self.export_manager.import_circuit()
-
-    def import_circuit_json(self, filename) -> None:
-        """Import circuit from JSON file"""
-        self.export_manager.import_circuit_json(filename)
-
-    def import_circuit_png(self, filename) -> None:
-        """Import circuit from PNG file with embedded metadata"""
-        self.export_manager.import_circuit_png(filename)
-            
-    def import_circuit_svg(self, filename) -> None:
-        """Import circuit from SVG file with embedded metadata"""
-        self.export_manager.import_circuit_svg(filename)
