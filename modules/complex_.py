@@ -18,6 +18,12 @@ class Complex:
     def magnitude(self) -> float:
         return math.sqrt(self.r * self.r + self.i * self.i)
     
+    def real(self) -> float:
+        return self.r
+    
+    def imag(self) -> float:
+        return self.i
+    
     def __str__(self) -> str:
         if abs(self.i) < 1e-10:
             return f"{self.r:.3f}"

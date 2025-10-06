@@ -676,6 +676,9 @@ class ExportImportManager:
                 self.import_circuit_qiskit(filename)
             else:
                 self.import_circuit_json(filename)
+                
+            self.gui.update_bloch_visualization()
+
         except Exception as e:
             messagebox.showerror("Import Error", f"Failed to import circuit:\n{str(e)}")
     
