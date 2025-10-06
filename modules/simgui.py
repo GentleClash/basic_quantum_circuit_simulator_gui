@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 class QuantumSimulatorGUI:
     """Main GUI application"""
-    def __init__(self, root, time_steps=30) -> None:
+    def __init__(self, root, time_steps=50) -> None:
         self.root = root
         self.root.title("Quantum Circuit Simulator")
         self.qubit_selection_mode = False

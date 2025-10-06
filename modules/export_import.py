@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from modules.circuit import QuantumCircuit
 from modules.complex_ import Complex
+from modules.qiskit_serdes import QiskitCircuitExporter, QiskitCircuitImporter
 import base64
 import xml.etree.ElementTree as ET
 
@@ -21,27 +22,29 @@ class ExportImportManager:
         """Show format selection dialog and export"""
         format_dialog = tk.Toplevel(self.gui.root)
         format_dialog.title("Export Format")
-        format_dialog.geometry("300x200")
+        format_dialog.geometry("300x250")  # Increased height
         format_dialog.transient(self.gui.root)
         format_dialog.grab_set()
         
         result = {'format': None}
         
         ttk.Label(format_dialog, text="Select Export Format:", 
-                 font=('Arial', 12, 'bold')).pack(pady=20)
+                font=('Arial', 12, 'bold')).pack(pady=20)
         
         def select_format(fmt) -> None:
             result['format'] = fmt
             format_dialog.destroy()
         
         ttk.Button(format_dialog, text="SVG (Vector - Best Quality)", 
-                  command=lambda: select_format('svg')).pack(pady=5, fill=tk.X, padx=40)
+                command=lambda: select_format('svg')).pack(pady=5, fill=tk.X, padx=40)
         ttk.Button(format_dialog, text="PNG (Raster Image)", 
-                  command=lambda: select_format('png')).pack(pady=5, fill=tk.X, padx=40)
+                command=lambda: select_format('png')).pack(pady=5, fill=tk.X, padx=40)
         ttk.Button(format_dialog, text="JSON (Data Only)", 
-                  command=lambda: select_format('json')).pack(pady=5, fill=tk.X, padx=40)
+                command=lambda: select_format('json')).pack(pady=5, fill=tk.X, padx=40)
+        ttk.Button(format_dialog, text="Qiskit Python (.py)", 
+                command=lambda: select_format('qiskit')).pack(pady=5, fill=tk.X, padx=40)
         ttk.Button(format_dialog, text="Cancel", 
-                  command=format_dialog.destroy).pack(pady=10)
+                command=format_dialog.destroy).pack(pady=10)
         
         self.gui.root.wait_window(format_dialog)
         
@@ -51,6 +54,8 @@ class ExportImportManager:
             self.export_circuit_png()
         elif result['format'] == 'json':
             self.export_circuit_json()
+        elif result['format'] == 'qiskit':
+            self.export_circuit_qiskit()
         
     def export_circuit_json(self) -> None:
         """Export circuit as JSON"""
@@ -615,15 +620,48 @@ class ExportImportManager:
                                 fill='#667eea', outline='#333', width=2)
             canvas.create_text(x, y, text=gate['gate'], fill='white',
                             font=('Arial', int(12 * zoom), 'bold'))
+    
+    def export_circuit_qiskit(self) -> None:
+        """Export circuit as Qiskit Python code"""
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".py",
+            filetypes=[("Python files", "*.py"), ("All files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            # Prepare circuit data
+            initial_state_data = None
+            if self.gui.circuit.initial_state is not None:
+                initial_state_data = [[amp.r, amp.i] for amp in self.gui.circuit.initial_state]
+            
+            circuit_data = {
+                'num_qubits': self.gui.circuit.num_qubits,
+                'gates': self.gui.circuit_gates,
+                'initial_state': initial_state_data
+            }
+            
+            # Convert to JSON string and export
+            circuit_json = json.dumps(circuit_data)
+            exporter = QiskitCircuitExporter(json_data=circuit_json)
+            exporter.export(filename, include_visualization=True)
+            
+            messagebox.showinfo("Export", f"Circuit exported as Qiskit Python code to:\n{filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export Qiskit code:\n{str(e)}")
         
     def import_circuit(self) -> None:
         """Import circuit from file"""
         filename = filedialog.askopenfilename(
-            filetypes=[("Circuit files", "*.json *.png *.svg"), 
-                       ("JSON files", "*.json"),
-                       ("PNG files", "*.png"),
-                       ("SVG files", "*.svg"),
-                       ("All files", "*.*")]
+            filetypes=[("Circuit files", "*.json *.png *.svg *.py"), 
+                    ("JSON files", "*.json"),
+                    ("PNG files", "*.png"),
+                    ("SVG files", "*.svg"),
+                    ("Python files", "*.py"),
+                    ("All files", "*.*")]
         )
         
         if not filename:
@@ -634,6 +672,8 @@ class ExportImportManager:
                 self.import_circuit_png(filename)
             elif filename.lower().endswith('.svg'):
                 self.import_circuit_svg(filename)
+            elif filename.lower().endswith('.py'):
+                self.import_circuit_qiskit(filename)
             else:
                 self.import_circuit_json(filename)
         except Exception as e:
@@ -727,5 +767,17 @@ class ExportImportManager:
             
         self._load_circuit_data(circuit_data)
         messagebox.showinfo("Import", "Circuit imported from SVG successfully!")
+    
+    def import_circuit_qiskit(self, filename) -> None:
+        """Import circuit from Qiskit Python file"""
+        try:
+            importer = QiskitCircuitImporter()
+            circuit_data = importer.validate_and_import(filename)
+            
+            self._load_circuit_data(circuit_data)
+            messagebox.showinfo("Import", "Circuit imported from Qiskit Python file successfully!")
+            
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to import Qiskit file:\n{str(e)}")
 
     
