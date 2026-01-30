@@ -4,11 +4,10 @@ A quantum circuit simulator with an interactive graphical user interface built u
 
 __Note__: This project is intended for demonstration purposes and does not include advanced features like noise modeling or optimizations.
 
-<p align="center">
-  <video src="https://gist.github.com/GentleClash/4197235ff792304ec45457c3d1718402/raw/88986041dfe34f9591007179cf82810c352eff5f/demo_qsim.mp4" width="800" controls muted autoplay loop>
+  <video src="https://github.com/user-attachments/assets/5a932c28-74e4-4c46-907a-2407533ee974" width="800" controls muted autoplay loop>
     Your browser does not support the video tag.
   </video>
-</p>
+
 
 ## Features
 
